@@ -105,6 +105,28 @@ retrieval layer and corpus lookups (e.g. `search_rules`, `lookup_card`,
 `lookup_infraction`). The loop is provider-neutral and driven through the
 OpenAI-compatible client.
 
+#### Tools (`fab_agent/tools/`)
+The agent reasons over four tools, each a plain function with pydantic
+input/output models, exported as OpenAI-compatible schemas by
+`fab_agent/tools/registry.py`:
+
+- **`search_rules`** — hybrid retrieval over the corpus (thin wrapper over
+  `HybridRetriever`), returning citation-anchored passages.
+- **`get_card`** — fuzzy card lookup over `cards.jsonl`; returns close
+  suggestions instead of guessing when no confident match exists.
+- **`get_precedence_context`** — the **defeasible-reasoning** framing (below).
+- **`ask_clarification`** — a sentinel the agent emits to stop and ask the user;
+  reserved for cases where the ruling genuinely cannot be determined without a
+  missing fact (the evaluation penalizes unnecessary clarifications).
+
+**Defeasible reasoning & precedence.** FAB rulings are *defeasible*: a general
+rule holds unless a more specific authority overrides it. The governing order is
+CR by default → card text overrides general CR rules where they conflict → in
+sanctioned tournaments the TRP and PPG prevail within their scope, at the active
+Rules Enforcement Level. This framing is stored as an editable template
+(`fab_agent/tools/precedence.md`) and surfaced through `get_precedence_context`
+so the agent weighs conflicting authorities correctly before concluding.
+
 ### 4. IRAC verdict (structured output)
 The final answer is emitted as **JSON** following the legal **IRAC** structure:
 
