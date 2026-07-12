@@ -50,9 +50,17 @@ def load_chunks(path: Path = CHUNKS_PATH) -> list[dict]:
         return [json.loads(line) for line in fh if line.strip()]
 
 
+#: How many times the rule id is repeated in the lexical document. Boosting the
+#: id's term frequency makes a chunk rank first for *its own* number, above the
+#: many chunks that merely reference it (e.g. "[7.5.5]").
+RULE_ID_BOOST = 4
+
+
 def _index_text(chunk: dict) -> str:
-    """Text fed to the lexical index: rule id + title + body, for exact matches."""
-    parts = [chunk.get("rule_id", ""), chunk.get("title", ""), chunk.get("text", "")]
+    """Text fed to the lexical index: (boosted) rule id + title + body."""
+    rule_id = chunk.get("rule_id", "")
+    boosted_id = " ".join([rule_id] * RULE_ID_BOOST) if rule_id else ""
+    parts = [boosted_id, chunk.get("title", ""), chunk.get("text", "")]
     return " ".join(p for p in parts if p)
 
 

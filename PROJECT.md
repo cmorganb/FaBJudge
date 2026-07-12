@@ -84,6 +84,20 @@ exact-term matches (card names, keyword abilities) and paraphrased concepts are
 surfaced. Every returned passage carries a stable source id used later for
 citation.
 
+`HybridRetriever.retrieve()` (`fab_agent/retrieval/hybrid.py`) is the single
+retrieval entry point shared by the agent and the evaluation harness. In the
+default **hybrid** mode it pulls the top 20 from each retriever and merges them
+with **Reciprocal Rank Fusion** (RRF, k=60), de-duplicating by `chunk_id`. A
+`doc_filter` argument scopes results to specific documents (e.g. `["PPG"]`),
+which the router uses to route infraction questions to the penalty guide.
+
+**Ablation modes.** `retrieve(..., mode=...)` also accepts `"bm25"`
+(lexical-only) and `"dense"` (dense-only). These exist specifically for the
+Stage 5 ablation — *hybrid vs lexical-only vs dense-only* — so the harness can
+replay identical queries against each configuration through one code path and
+attribute quality differences to the retrieval strategy, keeping the grounding
+architecture constant per the research question.
+
 ### 3. ReAct agent loop (`fab_agent/agent/`, `fab_agent/tools/`)
 A tool-using **ReAct** loop (Thought → Action → Observation) lets the model
 iteratively gather evidence before committing to a ruling. Tools wrap the
