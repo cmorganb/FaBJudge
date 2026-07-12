@@ -19,6 +19,8 @@ dependencies = [
     "pandas>=2.2",
     "matplotlib>=3.9",
     "openai>=1.35",
+    "rapidfuzz>=3.14.5",
+    "anthropic>=0.116.0",
 ]
 
 [project.optional-dependencies]
