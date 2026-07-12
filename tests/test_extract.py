@@ -146,6 +146,32 @@ def test_latin1_fallback_decoding():
 # --------------------------------------------------------------------------- #
 # Output structure
 # --------------------------------------------------------------------------- #
+def test_non_rule_back_matter_is_dropped():
+    raw = (
+        "1 Game Concepts\n"
+        "1.0 General\n"
+        "1.0.1 A real rule that must survive.\n"
+        "2 Acknowledgments\n"
+        "2.0 Legend Story Studios staff credits.\n"
+        "2.1 Community Contributors listed here.\n"
+        "3 Zones\n"
+        "3.1 A zone rule after the credits.\n"
+    ).encode("utf-8")
+    result = extract_rules_document(
+        raw, source_file="cr.txt", document_title="CR", version="v0"
+    )
+    rule_ids = [r.identifier for r in result.records if r.kind == "rule"]
+
+    # Credit "rules" gone; real rules on either side of the block survive.
+    assert "2.0" not in rule_ids and "2.1" not in rule_ids
+    assert "1.0.1" in rule_ids and "3.1" in rule_ids
+    assert result.dropped_sections == ["Acknowledgments"]
+    assert "Acknowledgments" not in result.markdown
+    assert "Community Contributors" not in result.markdown
+    # The dropped chapter's Zones successor is not itself dropped.
+    assert "# 3 Zones" in result.markdown
+
+
 def test_markdown_has_metadata_block():
     raw = "1.1 A rule.\n".encode("utf-8")
     result = extract_rules_document(

@@ -78,7 +78,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     # Rules documents
     # ------------------------------------------------------------------ #
     all_rules: list[tuple[str, str, str]] = []  # (doc, id, text)
-    doc_stats: list[tuple[str, int, dict[str, int], int]] = []
+    doc_stats: list[tuple[str, int, dict[str, int], int, list[str]]] = []
 
     for filename, (title, out_name) in RULE_DOCS.items():
         raw = (RAW_DIR / filename).read_bytes()
@@ -95,6 +95,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         log_lines = [f"# Extraction log for {filename}", ""]
         log_lines.append(f"## Stripped header/footer lines ({len(result.removed_lines)})")
         log_lines += result.removed_lines or ["(none)"]
+        log_lines += ["", f"## Dropped non-rule sections ({len(result.dropped_sections)})"]
+        log_lines += result.dropped_sections or ["(none)"]
         log_lines += ["", f"## Uncaptured id-like lines ({len(result.warnings)})"]
         log_lines += result.warnings or ["(none)"]
         log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
@@ -103,7 +105,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             if rec.kind == "rule" and rec.paragraphs and rec.paragraphs[0]:
                 all_rules.append((title, rec.identifier, rec.paragraphs[0]))
 
-        doc_stats.append((title, result.rule_count, result.depth_counts, len(result.warnings)))
+        doc_stats.append((title, result.rule_count, result.depth_counts,
+                          len(result.warnings), result.dropped_sections))
 
     # ------------------------------------------------------------------ #
     # Card database
@@ -121,9 +124,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     print("Corpus normalization complete →", PROCESSED_DIR.relative_to(ROOT))
     print("=" * 68)
     print("\nRules detected per document:")
-    for title, count, depths, warns in doc_stats:
+    for title, count, depths, warns, dropped in doc_stats:
         breakdown = ", ".join(f"{k}: {v}" for k, v in sorted(depths.items()))
         print(f"  • {title}: {count} rules   [{breakdown}]")
+        if dropped:
+            print(f"      ⃠ dropped non-rule section(s): {', '.join(dropped)}")
         if warns:
             print(f"      ⚠ {warns} id-like line(s) flagged for review (see .extract.log)")
 

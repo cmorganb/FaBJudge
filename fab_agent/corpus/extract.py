@@ -45,6 +45,12 @@ LOOKS_LIKE_ID_RE = re.compile(r"^\s*(?P<id>\d+(?:\.\d+)+[a-z]?)[.)]?(?=\s|$)")
 #: Standalone page-number / running-footer lines to always drop.
 PAGE_NUMBER_RE = re.compile(r"^(page\s+)?\d+(\s+of\s+\d+)?$", re.IGNORECASE)
 
+#: Chapter titles that are non-rule back-matter (credits / copyright). These
+#: sections, and everything under them, are dropped from the extracted corpus
+#: so they never become spurious "rules" — e.g. the CR's "Acknowledgments"
+#: block reuses rule numbers (2.0/2.1) for its staff and contributor lists.
+NON_RULE_SECTIONS = {"acknowledgments", "acknowledgements", "credits", "copyright"}
+
 #: Characters that terminate a sentence; a line NOT ending in one of these was
 #: (heuristically) cut mid-sentence by hard wrapping and should be re-joined.
 _TERMINAL_CHARS = set('.!?:;"\')”’')
@@ -226,6 +232,28 @@ def segment(lines: Iterable[str]) -> tuple[list[Record], list[str]]:
     return records, []
 
 
+def _drop_back_matter(records: list[Record]) -> tuple[list[Record], list[str]]:
+    """Drop non-rule back-matter chapters (credits/copyright) and their content.
+
+    A matching chapter heading starts a "dropping" region that continues until
+    the next chapter heading. Returns ``(kept_records, dropped_titles)``.
+    """
+    kept: list[Record] = []
+    dropped: list[str] = []
+    dropping = False
+    for rec in records:
+        if rec.kind == "chapter":
+            if (rec.title or "").strip().lower() in NON_RULE_SECTIONS:
+                dropping = True
+                dropped.append(rec.title or "")
+                continue
+            dropping = False
+        if dropping:
+            continue
+        kept.append(rec)
+    return kept, dropped
+
+
 def _validate_identifiers(lines: list[str], records: list[Record]) -> list[str]:
     """Flag lines that look like rule ids but were not anchored as records."""
     captured = {r.identifier for r in records if r.kind == "rule"}
@@ -289,6 +317,7 @@ class ExtractResult:
     removed_lines: list[str]
     rule_count: int
     depth_counts: dict[str, int]
+    dropped_sections: list[str]
 
 
 def extract_rules_document(
@@ -306,7 +335,10 @@ def extract_rules_document(
     text = decode_bytes(raw)
     lines, removed = normalize_lines(text, repeat_threshold=repeat_threshold)
     records, _ = segment(lines)
+    # Validate against the full segmentation, then drop non-rule back-matter so
+    # its (intentionally discarded) identifiers are not flagged as warnings.
     warnings = _validate_identifiers(lines, records)
+    records, dropped_sections = _drop_back_matter(records)
 
     rules = [r for r in records if r.kind == "rule"]
     depth_counts: dict[str, int] = {}
@@ -330,6 +362,7 @@ def extract_rules_document(
         removed_lines=removed,
         rule_count=len(rules),
         depth_counts=depth_counts,
+        dropped_sections=dropped_sections,
     )
 
 
