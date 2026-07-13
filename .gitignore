@@ -38,5 +38,7 @@ Thumbs.db
 # are not tracked. Processed artifacts and the folder structure are kept.
 data/raw/*
 data/index/*
+data/traces/*
 !data/raw/.gitkeep
 !data/index/.gitkeep
+!data/traces/.gitkeep
